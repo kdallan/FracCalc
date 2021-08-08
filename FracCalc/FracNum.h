@@ -37,9 +37,7 @@ public:
     const std::string
     toString() const
     {        
-        std::string str;
-        str.reserve( 64 );
-        
+        std::string str;        
         if( 0 == den )
         {
             return "Zero denominator";
@@ -84,18 +82,47 @@ public:
     
 private:
 
-    int64_t
+#if defined( USE_BINARY_GCD )
+    static uint64_t
     GCD(
-        int64_t   a,
-        int64_t   b )
+        uint64_t u,
+        uint64_t v ) noexcept
+    {
+        const uint64_t t = u | v;
+        if( 0==u || 0==v ) return t;
+
+        const int commonfactor = __builtin_ctzll( t );
+        u >>= __builtin_ctzll( u );
+        
+        do
+        {
+            v >>= __builtin_ctzll( v );
+            if( u > v )
+            {
+                uint64_t tmp = v;
+                v = u;
+                u = tmp;
+            }
+            v = v - u;
+        }
+        while( 0 != v );
+        
+        return u << commonfactor;
+    }
+#else
+    static uint64_t
+    GCD(
+        uint64_t   a,
+        uint64_t   b )
     {
         while( b > 0 )
         {
-            const int64_t r = a % b;
+            const uint64_t r = a % b;
             a = b;
             b = r;
         }
-    
+
         return a;
     }
+#endif // USE_BINARY_GCD
 };
