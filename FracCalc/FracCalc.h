@@ -6,7 +6,7 @@
 #include <iostream>
 
 constexpr int altisdigit( const char c ) noexcept { return ((unsigned)(c-'0') < 10); }
-constexpr int altisspace( const char c ) noexcept { return (' '==c||'\t'==c||'\n'==c||'\r'==c); }
+constexpr int altisspace( const char c ) noexcept { return (c>0 && c<=32); }
 
 class FracCalc final
 {
@@ -28,23 +28,31 @@ public:
     {
         if( nullptr == aProblem ) return false;
     
-        //
-        // Rentrant. Reset the necessary variables
-    
         mStart  = const_cast<char*>( aProblem );
         mPtr    = mStart;
         mError  = 0;
         
-        //
-        // Start of the recursive descent parser
+        aAnswer = FracZero;
         
-        parseExpression( aAnswer );
-        
-        //
-        // Make sure we parsed everything correctly
-        
-        expect( '\0' );
-        
+        ignoreWhitespace();
+        if( '\0' != *mPtr )
+        {
+            //
+            // Start of the recursive descent parser
+            
+            parseExpression( aAnswer );
+            
+            //
+            // Make sure we parsed everything correctly
+            
+            expect( '\0' );
+            
+            if( 0 != mError )
+            {
+                aAnswer = FracInfinity;
+            }            
+        }
+                
         return 0 == mError;
     }
     
@@ -102,7 +110,7 @@ private:
     {
         if( '\0' == aChar ) return "end of string";
         
-        return std::string( 1, aChar );
+        return "'" + std::string( 1, aChar ) + "'";
     }
     
     void
@@ -135,14 +143,6 @@ private:
     int64_t
     parseInteger()
     {
-        ignoreWhitespace();
-        const bool neg = '-' == *mPtr;
-        if( neg || '+' == *mPtr )
-        {
-            ++mPtr; // Eat + -
-            ignoreWhitespace();
-        }
-        
         if( !altisdigit( *mPtr ))
         {
             expectError( "a number" );
@@ -152,11 +152,11 @@ private:
         int64_t num = 0;
         do
         {
-            num = (10*num) + (*mPtr++ -'0');
+            num = (10*num) + (*mPtr++ - '0');
         }
         while( altisdigit( *mPtr ));
         
-        return neg?-num:num;
+        return num;
     }
     
     void
@@ -266,24 +266,24 @@ private:
     parseFracNumber(
         FracNum &aFracNum )
     {
+        const bool neg = '-' == *mPtr;
+        if( neg || '+' == *mPtr )
+        {
+            ++mPtr; // Eat + -
+            ignoreWhitespace();
+        }
+        
         aFracNum.num = parseInteger();
         aFracNum.den = 1;
         
-        ignoreWhitespace();
-    
         if( '/' == *mPtr )
         {
             ++mPtr; // Eat /
             aFracNum.den = parseInteger();
-            ignoreWhitespace();
         }
-        else if( '_' == *mPtr
-#if defined(ALLOW_WHOLE_FRAC_SPACE)
-                ||  fastisdigit( *mPtr ) // // allow 3_1/2 or 3 1/2
-#endif
-                )
+        else if( '_' == *mPtr )
         {
-            if( '_' == *mPtr) ++mPtr; // Eat _
+            ++mPtr; // Eat _
             
             const int64_t numerator = parseInteger();
             if( !expect( '/' )) return false;
@@ -292,12 +292,8 @@ private:
             aFracNum.num = aFracNum.num*aFracNum.den + numerator;
         }
         
-        if( 0 == aFracNum.den )
-        {
-            parseError( "Divide by zero" );
-            return false;
-        }
-        
+        if( neg ) aFracNum.num = -aFracNum.num;
+                
         aFracNum.simplify();
         return true;
     }

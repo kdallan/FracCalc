@@ -18,7 +18,7 @@ processCurrentArguments(
     // before returning
     
     std::string program;
-    program.reserve( 128 ); // To minimize string reallocation when appending
+    program.reserve( 64 ); // To minimize string reallocation when appending
     
     //
     // Combine all the arguments into one program
@@ -34,7 +34,7 @@ processCurrentArguments(
     const bool success = calc.calculate( program.c_str(), num );
     if( success )
     {
-        std::cout << "= " << num.toString() << '\n';
+        std::cout << num.toString() << std::endl;
     }
     
     return success?0:-2;
@@ -65,7 +65,7 @@ void
 enterCalculatorMode()
 {
     std::cout << "Fraction Calculator for OneLogin\nType in your fraction expression then press return\n";
-    std::cout << "You can type 'quit' to exit the calculator\n";
+    std::cout << "Type 'quit' to exit the calculator\n";
     std::cout << "? " << std::flush;
     
     std::string input;        
@@ -109,6 +109,9 @@ struct test_t
 
 } testRun[] = {
     { "", "0" },
+    { "1 / (2-2)", "Infinity" },
+    { "1/0", "Infinity" },
+    { "", "0" },
     { " ", "0" },
     { "  ", "0" },
     { "(1/2)", "1/2" },
@@ -135,15 +138,20 @@ struct test_t
     { "-1/2--1/2", "0" },
     { "-123/14", "-8_11/14" },
     { "123/14", "8_11/14" },
-    { "-1/-2 + 1", "1_1/2" },
-    { "1/-2 + 1", "1/2" },
+    { "-1/-2 + 1", "Infinity" },
+    { "1/-2 + 1", "Infinity" },
     { "1/2 + ((1/2) + 10/20)", "1_1/2" },
     { "((10/2))", "5" },
     { "10", "10" },
     { "4/8", "1/2" },
     { "3_1/2", "3_1/2" },
     { "37/22", "1_15/22" },
-    { "3_1/0", "Zero denominator" }
+    { "3_1/0", "Infinity" },
+    { "1/(2)", "Infinity" },
+    { "1/ 2", "Infinity" },
+    { "1_ 3/4", "Infinity" },
+    { "1_-3/4", "Infinity" },
+    { "- 1_1/2", "-1_1/2" }
 };
     
 int
@@ -159,7 +167,7 @@ main()
         FracCalc calc;
         FracNum result;
         
-        calc.setSilent();        
+        calc.setSilent();
         calc.calculate( test.program.c_str(), result );
         
         const std::string resultString = result.toString();

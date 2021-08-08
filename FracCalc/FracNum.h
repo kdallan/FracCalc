@@ -15,8 +15,8 @@ public:
     void
     simplify() noexcept
     {
-        assert( 0 != den );
-        
+        if( 0 == den ) return; // Already infinity
+
         //
         // Always want the denominator to be +ve
         
@@ -27,9 +27,8 @@ public:
         }
 
         const int64_t divisor = GCD( std::abs( num ), den );
-    
         assert( 0 != divisor );
-    
+        
         num /= divisor;
         den /= divisor;
     }
@@ -38,10 +37,7 @@ public:
     toString() const
     {        
         std::string str;        
-        if( 0 == den )
-        {
-            return "Zero denominator";
-        }
+        if( 0 == den ) return "Infinity";
         
         if( std::abs( num ) > den )
         {
@@ -53,11 +49,7 @@ public:
             if( newnum )
             {
                 str = std::to_string( whole );
-#if defined(ALLOW_WHOLE_FRAC_SPACE)
-                str += " ";
-#else
                 str += "_";
-#endif
                 str += std::to_string( newnum ) + "/" + std::to_string( den );
             }
             else
@@ -79,41 +71,13 @@ public:
     
         return str;
     }
-    
+        
 private:
 
-#if defined( USE_BINARY_GCD )
-    static uint64_t
-    GCD(
-        uint64_t u,
-        uint64_t v ) noexcept
-    {
-        const uint64_t t = u | v;
-        if( 0==u || 0==v ) return t;
-
-        const int commonfactor = __builtin_ctzll( t );
-        u >>= __builtin_ctzll( u );
-        
-        do
-        {
-            v >>= __builtin_ctzll( v );
-            if( u > v )
-            {
-                uint64_t tmp = v;
-                v = u;
-                u = tmp;
-            }
-            v = v - u;
-        }
-        while( 0 != v );
-        
-        return u << commonfactor;
-    }
-#else
     static uint64_t
     GCD(
         uint64_t   a,
-        uint64_t   b )
+        uint64_t   b ) noexcept
     {
         while( b > 0 )
         {
@@ -124,5 +88,8 @@ private:
 
         return a;
     }
-#endif // USE_BINARY_GCD
 };
+
+constexpr FracNum FracZero{ 0, 1 };
+constexpr FracNum FracOne{ 1, 1 };
+constexpr FracNum FracInfinity{ 1, 0 };
