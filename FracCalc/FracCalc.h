@@ -5,6 +5,9 @@
 #include <cassert>
 #include <iostream>
 
+constexpr int altisdigit( const char c ) noexcept { return ((unsigned)(c-'0') < 10); }
+constexpr int altisspace( const char c ) noexcept { return (' '==c||'\t'==c||'\n'==c||'\r'==c); }
+
 class FracCalc final
 {
 public:
@@ -57,16 +60,16 @@ public:
 
 private:
 
+    char        * __restrict mPtr;      // Current parsing location
+    char        * __restrict mStart;    // Start of the program. Keep this to calculate any error position
     char        mEOS;           // Dummy memory location so mPtr can point to EOS
-    char        *mStart;        // Start of the program. Keep this to calculate any error position
-    char        *mPtr;          // Current parsing location
     uint8_t     mError;         // Error code. 0 - no error
     bool        mSilent;        // true is we want to silence any parse error output
 
     inline void
-    ignoreWhitespace()
+    ignoreWhitespace() noexcept
     {
-        while( isspace( *mPtr )) ++mPtr;
+        while( altisspace( *mPtr )) ++mPtr;
     }
 
     void
@@ -95,7 +98,7 @@ private:
     
     const std::string
     charOrEOS(
-        const char aChar )
+        const char aChar ) const
     {
         if( '\0' == aChar ) return "end of string";
         
@@ -129,36 +132,29 @@ private:
         return true;
     }
     
-    bool
-    expectNumber()
+    int64_t
+    parseInteger()
     {
-        if( !isdigit( *mPtr ) && '+' != *mPtr && '-' != *mPtr )
+        ignoreWhitespace();
+        const bool neg = '-' == *mPtr;
+        if( neg || '+' == *mPtr )
+        {
+            ++mPtr; // Eat + -
+            ignoreWhitespace();
+        }
+        
+        if( !altisdigit( *mPtr ))
         {
             expectError( "a number" );
             return false;
         }
         
-        return true;
-    }
-    
-    int64_t
-    parseInteger()
-    {
-        if( !expectNumber()) return 0;
-        
-        const bool neg = '-' == *mPtr;
-        if( neg || '+' == *mPtr )
-        {
-            ++mPtr;
-            ignoreWhitespace();
-        }
-        
         int64_t num = 0;
-        while( isdigit( *mPtr ))
+        do
         {
-            num = (10*num) + (*mPtr-'0');
-            ++mPtr;
+            num = (10*num) + (*mPtr++ -'0');
         }
+        while( altisdigit( *mPtr ));
         
         return neg?-num:num;
     }
@@ -168,7 +164,7 @@ private:
         const FracNum   &aOperand0,
         const FracNum   &aOperand1,
         const char      aOperator,
-        FracNum         &aResult )
+        FracNum         &aResult ) noexcept
     {
         switch( aOperator )
         {
@@ -189,7 +185,7 @@ private:
             
         case '/':
             {
-                int64_t newnum = aOperand0.num * aOperand1.den;
+                const int64_t newnum = aOperand0.num * aOperand1.den;
                 aResult.den = aOperand0.den * aOperand1.num;
                 aResult.num = newnum;
             }
@@ -279,10 +275,11 @@ private:
         {
             ++mPtr; // Eat /
             aFracNum.den = parseInteger();
+            ignoreWhitespace();
         }
         else if( '_' == *mPtr
 #if defined(ALLOW_WHOLE_FRAC_SPACE)
-                ||  isdigit( *mPtr ) // // allow 3_1/2 or 3 1/2
+                ||  fastisdigit( *mPtr ) // // allow 3_1/2 or 3 1/2
 #endif
                 )
         {
@@ -291,9 +288,7 @@ private:
             const int64_t numerator = parseInteger();
             if( !expect( '/' )) return false;
             
-            aFracNum.den = parseInteger();
-            ignoreWhitespace();
-            
+            aFracNum.den = parseInteger();            
             aFracNum.num = aFracNum.num*aFracNum.den + numerator;
         }
         
